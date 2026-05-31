@@ -1,0 +1,7 @@
+{
+    "stage": "seedling",
+    "light_mode": "18_6",
+    "light_start_time": "06:00",
+    "grow_light_forced": "auto",
+    "fan_forced": "auto"
+}
