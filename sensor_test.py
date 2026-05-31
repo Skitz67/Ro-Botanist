@@ -25,14 +25,14 @@ import busio
 import adafruit_dht
 from adafruit_ads1x15.ads1115 import ADS1115
 from adafruit_ads1x15.analog_in import AnalogIn
-import adafruit_ads1x15.ads1115 as ADS
+
 
 # ── PIN ASSIGNMENTS (matching botanist.py exactly) ────────────────────────────
 PIN_OVERFLOW = 22       # physical pin 22
 
 # ── ADS1115 ──────────────────────────────────────────────────────────────────
 ADS1115_I2C_ADDRESS  = 0x48
-ADS1115_SOIL_CHANNEL = ADS.P0   # channel 0
+ADS1115_SOIL_CHANNEL = 0        # channel 0
 
 # ── SOIL MOISTURE CALIBRATION ────────────────────────────────────────────────
 # Update these after running: python3 botanist.py --calibrate
