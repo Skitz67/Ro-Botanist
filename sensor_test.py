@@ -36,7 +36,7 @@ GPIO_CHIP = 0
 # Match physical pin 22 to its line number on the chip above.
 # Example output line:  line  80: "PC16"  unused  input  active-high
 # The number after "line" is what goes here.
-LINE_OVERFLOW = 22   # TODO: replace with correct line number
+LINE_OVERFLOW = 262   # TODO: replace with correct line number
 
 # ── ADS1115 ──────────────────────────────────────────────────────────────────
 ADS1115_I2C_ADDRESS  = 0x48
