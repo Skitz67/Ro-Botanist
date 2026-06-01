@@ -6,7 +6,7 @@ Reads all sensors and prints a formatted report every 60 seconds.
 No outputs are activated. Safe to run before any wiring to outputs.
 
 Sensors tested:
-  - DHT22        temperature and humidity (physical pin 18)
+  - DHT22        temperature and humidity (board.D18)
   - ADS1115      soil moisture ADC via I2C (0x48, channel 0)
   - Overflow      digital input (physical pin 22)
 
@@ -19,16 +19,24 @@ import time
 from datetime import datetime
 from math import exp
 
-import OPi.GPIO as GPIO
+import lgpio
 import board
 import busio
 import adafruit_dht
 from adafruit_ads1x15.ads1115 import ADS1115
 from adafruit_ads1x15.analog_in import AnalogIn
 
+# ── GPIO CHIP ────────────────────────────────────────────────────────────────
+# Run: gpioinfo
+# Find the chip that lists the most GPIO lines (usually gpiochip0 on H618)
+GPIO_CHIP = 0
 
-# ── PIN ASSIGNMENTS (matching botanist.py exactly) ────────────────────────────
-PIN_OVERFLOW = 22       # physical pin 22
+# ── GPIO LINE NUMBER ─────────────────────────────────────────────────────────
+# TODO: Fill this in using the output of: gpioinfo
+# Match physical pin 22 to its line number on the chip above.
+# Example output line:  line  80: "PC16"  unused  input  active-high
+# The number after "line" is what goes here.
+LINE_OVERFLOW = 0   # TODO: replace with correct line number
 
 # ── ADS1115 ──────────────────────────────────────────────────────────────────
 ADS1115_I2C_ADDRESS  = 0x48
@@ -48,17 +56,21 @@ POLL_INTERVAL_SECONDS = 60
 
 # ── INITIALISE HARDWARE (once, not inside the loop) ───────────────────────────
 
-# GPIO
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(PIN_OVERFLOW, GPIO.IN)
+# GPIO chip
+_h = lgpio.gpiochip_open(GPIO_CHIP)
+if _h < 0:
+    raise RuntimeError(f"Failed to open gpiochip{GPIO_CHIP} — check GPIO_CHIP value")
+
+# Overflow input pin with pull-up
+lgpio.gpio_claim_input(_h, LINE_OVERFLOW, lgpio.SET_PULL_UP)
 
 # DHT22 — single persistent instance
 dht_device = adafruit_dht.DHT22(board.D18)
 
 # I2C + ADS1115 — single persistent instance
-_i2c        = busio.I2C(board.SCL, board.SDA)
-_ads        = ADS1115(_i2c, address=ADS1115_I2C_ADDRESS)
-_soil_chan  = AnalogIn(_ads, ADS1115_SOIL_CHANNEL)
+_i2c       = busio.I2C(board.SCL, board.SDA)
+_ads       = ADS1115(_i2c, address=ADS1115_I2C_ADDRESS)
+_soil_chan = AnalogIn(_ads, ADS1115_SOIL_CHANNEL)
 
 # ── HELPERS ───────────────────────────────────────────────────────────────────
 
@@ -88,14 +100,14 @@ def read_soil():
 
 def read_overflow():
     """Return True if overflow is detected."""
-    return bool(GPIO.input(PIN_OVERFLOW))
+    return bool(lgpio.gpio_read(_h, LINE_OVERFLOW))
 
 
 def calculate_vpd(temperature_c, humidity_rh):
     """Calculate VPD in kPa using the same formula as botanist.py."""
     leaf_temp = temperature_c - LEAF_TEMP_OFFSET
-    svp_leaf  = 0.6108 * exp(17.27 * leaf_temp  / (leaf_temp  + 237.3))
-    svp_air   = 0.6108 * exp(17.27 * temperature_c / (temperature_c + 237.3))
+    svp_leaf  = 0.6108 * exp(17.27 * leaf_temp      / (leaf_temp      + 237.3))
+    svp_air   = 0.6108 * exp(17.27 * temperature_c  / (temperature_c  + 237.3))
     avp       = svp_air * (humidity_rh / 100)
     return svp_leaf - avp
 
@@ -109,12 +121,10 @@ try:
     while True:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # --- Read all sensors ---
         temperature, humidity = read_dht22()
         soil_raw, soil_pct    = read_soil()
         overflow              = read_overflow()
 
-        # --- VPD (only if DHT22 succeeded) ---
         if temperature is not None and humidity is not None:
             vpd = calculate_vpd(temperature, humidity)
             vpd_str = f"{vpd:.3f} kPa"
@@ -137,7 +147,6 @@ try:
             vpd_str  = "N/A (DHT22 read failed)"
             vpd_note = ""
 
-        # --- Print report ---
         print(f"┌─ {timestamp} ───────────────────────────")
         print(f"│  Temperature  : {f'{temperature:.1f} °C' if temperature is not None else 'READ FAILED'}")
         print(f"│  Humidity     : {f'{humidity:.1f} %' if humidity is not None else 'READ FAILED'}")
@@ -154,5 +163,5 @@ except KeyboardInterrupt:
 
 finally:
     dht_device.exit()
-    GPIO.cleanup()
+    lgpio.gpiochip_close(_h)
     print("Hardware released cleanly.")
