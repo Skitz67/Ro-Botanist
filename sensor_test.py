@@ -65,7 +65,7 @@ if _h < 0:
 lgpio.gpio_claim_input(_h, LINE_OVERFLOW, lgpio.SET_PULL_UP)
 
 # DHT22 — single persistent instance
-dht_device = adafruit_dht.DHT22(board.D18)
+dht_device = adafruit_dht.DHT22(board.PI16)
 
 # I2C + ADS1115 — single persistent instance
 _i2c       = busio.I2C(board.SCL, board.SDA)
